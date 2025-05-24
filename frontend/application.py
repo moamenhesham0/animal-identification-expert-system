@@ -5,17 +5,28 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtCore import Qt
 import sys
+import pyswip
+
 
 
 class AnimalExpertSystem(QWidget):
-    CRITERIA = [
-        "Habitat Type", "Body Covering", "Reproduction Type",
-        "Number of Limbs", "Flight Capability", "Diet",
-        "Defense Mechanism", "Communication Method",
-        "Special Adaptation", "Activity Pattern"
-    ]
+    CRITERIA = {
+        "Habitat" : "habitat",
+        "Body Covering" : "skin_cover",
+        "Reproduction Type" : "birth_type",
+        "Number of Limbs" : "legs",
+        "Flight Capability" : "canfly",
+        "Diet" : "diet",
+        "Defense Mechanism" : "behavior",
+        "Communication Method" : "sound",
+        "Special Adaptation" : "special",
+        "Activity Pattern" : "activity"
+    }
 
     QUESTION_TEMPLATE = "What is the {} of the animal?"
+
+    VAR = "X"
+    GET_CRITERIA_CHOICES_TEMPLATE = "extract_unique({}, {}, {})"
 
     RADIO_STYLE =    """
                         QRadioButton {
@@ -92,6 +103,9 @@ class AnimalExpertSystem(QWidget):
                     }}
                 """
 
+    def __assert(criterion , storage):
+        return AnimalExpertSystem.ASSERT_TEMPLATE.format(storage, criterion)
+
     def __question(criterion):
         return AnimalExpertSystem.QUESTION_TEMPLATE.format(criterion)
 
@@ -125,10 +139,31 @@ class AnimalExpertSystem(QWidget):
 
     def __init__(self):
         super().__init__()
+
+        self.choices = []
+        self.results = []
+
+        # PROGLOG INITIALIZATION
+
+        self.prolog = pyswip.Prolog()
+        self.prolog.consult("../backend/backend.pl")
+
+
+        # Init Choices
+        for i, criterion in enumerate(AnimalExpertSystem.CRITERIA.values()):
+            self.choices[i] = list(self.prolog.query(AnimalExpertSystem.GET_CRITERIA_CHOICES_TEMPLATE.format(i+1,criterion , AnimalExpertSystem.VAR)))[0][AnimalExpertSystem.VAR]
+
+
+
+
+
+
+
+
+        # GUI Initialization
         self.setStyleSheet("background-color: #f5f5f5;")
 
-        self.results = [res for res in AnimalExpertSystem.CRITERIA]
-        self.choices = [[res for res in AnimalExpertSystem.CRITERIA] for _ in range(len(AnimalExpertSystem.CRITERIA))]
+
 
         self.button = QPushButton()
         self.__set_button("Submit", self.submit_handler)
