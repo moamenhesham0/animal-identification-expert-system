@@ -1,4 +1,4 @@
-animal("Elephant", "Terrestrial", "Fur", "Live Birth", 4, "No", "Herbivore", "Strength", "Vocal", "Trunk", "Diurnal").
+animal("Elephant", "Terrestrial", "Skin", "Live Birth", 4, "No", "Herbivore", "Strength", "Vocal", "Trunk", "Diurnal").
 animal("Giraffe", "Terrestrial", "Fur", "Live Birth", 4, "No", "Herbivore", "Visual", "Long Neck", "Long Neck", "Diurnal").
 animal("Kangaroo", "Terrestrial", "Fur", "Live Birth", 4, "No", "Herbivore", "Kick", "Vocal", "Pouch", "Crepuscular").
 animal("Platypus", "Aquatic", "Fur", "Egg-laying", 4, "No", "Carnivore", "Quiet", "Duck Bill", "Duck Bill", "Nocturnal").
@@ -43,15 +43,15 @@ animal("Dolphin", "Aquatic", "Smooth Skin", "Live Birth", 0, "No", "Carnivore", 
 :- dynamic(asked/3).
 
 % Assign weights to each criterion
-weight(habitat, 4).
-weight(skin_cover, 2).
-weight(birth_type, 1).
-weight(legs, 1).
-weight(can_fly, 1).
-weight(diet, 2).
+weight(habitat, 2).
+weight(skin_cover, 1).
+weight(birth_type, 4).
+weight(legs, 4).
+weight(can_fly, 4).
+weight(diet, 1).
 weight(behavior, 1).
-weight(sound, 1).
-weight(special, 1).
+weight(sound, 2).
+weight(special, 2).
 weight(activity, 1).
 
 % Calculate score for a single animal using all 10 criteria
@@ -69,10 +69,23 @@ animal_score(Name, Score) :-
     score_criterion(activity, Activity, AScore),
     Score is HScore + SScore + BthScore + LScore + FScore + DScore + BScore + SndScore + SpcScore + AScore.
 
-% Score for each criterion: full match = weight, no match = 0, not asked = -penalty
+
+% Penalties for missing input per criterion
+penalty(habitat, -3).
+penalty(skin_cover, -1).
+penalty(birth_type, -2).
+penalty(legs, -2).
+penalty(can_fly, -1).
+penalty(diet, 0).
+penalty(behavior, 0).
+penalty(sound, -1).
+penalty(special, 0).
+penalty(activity, 0).
+
+% Score for each criterion: full match = weight, no match = 0, not asked = penalty specific to criterion
 score_criterion(Criterion, Value, Score) :-
     weight(Criterion, W),
-    penalty(Penalty),
+    penalty(Criterion, Penalty),
     ( asked(user, Criterion, Input), Input \= '' ->
         (Input = Value -> Score = W ; Score = 0)
     ; Score = Penalty).
