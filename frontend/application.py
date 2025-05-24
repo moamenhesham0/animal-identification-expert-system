@@ -26,7 +26,7 @@ class AnimalExpertSystem(QWidget):
     QUESTION_TEMPLATE = "What is the {} of the animal?"
 
     VAR = "X"
-    GET_CRITERIA_CHOICES_TEMPLATE = "extract_unique({}, {}, {})"
+    GET_CRITERIA_CHOICES_TEMPLATE = "extract_unique({}, _, {})"
 
     RADIO_STYLE =    """
                         QRadioButton {
@@ -146,16 +146,20 @@ class AnimalExpertSystem(QWidget):
         # PROGLOG INITIALIZATION
 
         self.prolog = pyswip.Prolog()
-        self.prolog.consult("../backend/backend.pl")
-
+        self.prolog.consult("backend/backend.pl")
 
         # Init Choices
         for i, criterion in enumerate(AnimalExpertSystem.CRITERIA.values()):
-            self.choices[i] = list(self.prolog.query(AnimalExpertSystem.GET_CRITERIA_CHOICES_TEMPLATE.format(i+1,criterion , AnimalExpertSystem.VAR)))[0][AnimalExpertSystem.VAR]
-
-
-
-
+            # Start index from 1, skip index 1 (animal name)
+            # i from 0 to 9, so i+2 from 1+1=2 to 9+2=11 (Prolog: 2=habitat, ..., 11=activity)
+            prolog_index = i + 2
+            for sol in self.prolog.query(AnimalExpertSystem.GET_CRITERIA_CHOICES_TEMPLATE.format(prolog_index, AnimalExpertSystem.VAR)):
+                def decode_val(val):
+                    if isinstance(val, bytes):
+                        return val.decode('utf-8')
+                    return str(val)
+                self.choices.append([decode_val(val) for val in sol[AnimalExpertSystem.VAR]])
+                break
 
 
 
@@ -215,6 +219,7 @@ class AnimalExpertSystem(QWidget):
 
     def result_window(self):
         self.__clear_layout()
+        # Show user's answers
         result_label_header = QLabel("Your Answers")
         result_label_header.setStyleSheet("font-size: 22px; font-weight: bold; margin-bottom: 10px;")
         self.layout.addWidget(result_label_header)
@@ -224,6 +229,80 @@ class AnimalExpertSystem(QWidget):
             result_label.setStyleSheet("font-size: 18px; color: #444;")
             self.layout.addWidget(result_label)
 
+        # Visually distinct break
+        self.layout.addWidget(AnimalExpertSystem.__create_break_line())
+
+        # Query Prolog for all animal scores and find the best match(es)
+        matches = []
+        def decode_val(val):
+            if isinstance(val, bytes):
+                return val.decode('utf-8')
+            return str(val)
+        for sol in self.prolog.query("animal_score(Name, Score)"):
+            name = sol["Name"]
+            score = sol["Score"]
+            name = decode_val(name)
+            matches.append((name, score))
+        if not matches:
+            best_animals = []
+            max_score = None
+        else:
+            max_score = max(score for _, score in matches)
+            best_animals = [name for name, score in matches if score == max_score]
+        # Show best-matching animal(s) and their score
+        match_header = QLabel("Best-Matching Animal(s)")
+        match_header.setStyleSheet("font-size: 22px; font-weight: bold; color: #4CAFAF; margin-top: 20px;")
+        
+        self.layout.addWidget(match_header)
+
+        if not best_animals or max_score is None or max_score <= 0:
+            no_match_label = QLabel("No animals matched your answers.")
+            no_match_label.setStyleSheet("font-size: 18px; color: #b00; font-weight: bold;")
+            self.layout.addWidget(no_match_label)
+        else:
+            for animal in best_animals:
+                animal_label = QLabel(f"{animal} (Match score: {max_score})")
+                animal_label.setStyleSheet("font-size: 20px; color: #228B22; font-weight: bold; margin-bottom: 6px;")
+                self.layout.addWidget(animal_label)
+
+
+    def get_unique_criterion_values(self, index):
+        # Returns unique values for a criterion index (1-based)
+        result = []
+        for sol in self.prolog.query(f"extract_unique({index}, _, List)"):
+            result = [str(val) for val in sol['List']]
+        print(result)
+        return result
+
+    def submit_handler(self):
+        # Clear previous answers in Prolog
+        list(self.prolog.query("retractall(asked(_, _, _))."))
+
+        # Assert user answers for each criterion
+        self.results = []
+        for i, (criterion_label, criterion_key) in enumerate(self.CRITERIA.items()):
+            selected = None
+            for btn in self.button_groups[i].buttons():
+                if btn.isChecked():
+                    selected = btn.text()
+                    # Decode if bytes (shouldn't be needed after above, but safe)
+                    if isinstance(selected, bytes):
+                        selected = selected.decode('utf-8')
+                    break
+            if selected is not None:
+                self.prolog.assertz(f'asked(user, {criterion_key}, "{selected}")')
+                self.results.append(f"{criterion_label}: {selected}")
+            else:
+                # If not answered, still show in results
+                self.results.append(f"{criterion_label}: (no answer)")
+
+        # Get recommendations (capture output from Prolog)
+        # To get results in Python, you need to add a new predicate in Prolog that returns the matches as a list.
+        # For now, this will just print to the console:
+        list(self.prolog.query("recommend_animals."))
+
+        self.__set_button("Back", self.back_handler)
+        self.result_window()
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)

@@ -43,7 +43,7 @@ animal("Dolphin", "Aquatic", "Smooth Skin", "Live Birth", 0, "No", "Carnivore", 
 :- dynamic(asked/3).
 
 % Assign weights to each criterion
-weight(habitat, 2).
+weight(habitat, 4).
 weight(skin_cover, 2).
 weight(birth_type, 1).
 weight(legs, 1).
@@ -80,7 +80,6 @@ score_criterion(Criterion, Value, Score) :-
 % Penalty for missing input
 penalty(-1).
 
--
 max_score(Matches, Max) :-
     findall(Score, member(_-Score, Matches), Scores),
     max_list(Scores, Max).
@@ -88,13 +87,12 @@ max_score(Matches, Max) :-
 has_score(Max, _-Score) :- Score =:= Max.
 
 
-% recommend_animals :-
-%      retractall(asked(_, _, _)),
-%      write('Answer a few questions about what you’re looking for in an animal!'), nl,
-%      ask,
-%      findall(Name-Score, likes_animal(Name, Score), Matches),
-%      sort(2, @>=, Matches, Sorted),
-%      (Sorted = [] -> write('No animals matched.') ; print_animals(Sorted)).
+
+recommend_animals :-
+    findall(Name-Score, animal_score(Name, Score), Matches),
+    max_score(Matches, Max),
+    include(has_score(Max), Matches, BestMatches),
+    (BestMatches = [] -> write('No animals matched.') ; print_animals(BestMatches)).
 
 print_animals([]).
 print_animals([Name-Score | Rest]) :-
