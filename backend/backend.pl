@@ -88,17 +88,31 @@ max_score(Matches, Max) :-
 has_score(Max, _-Score) :- Score =:= Max.
 
 
-# recommend_animals :-
-#     retractall(asked(_, _, _)),
-#     write('Answer a few questions about what you’re looking for in an animal!'), nl,
-#     ask,
-#     findall(Name-Score, likes_animal(Name, Score), Matches),
-#     sort(2, @>=, Matches, Sorted),
-#     (Sorted = [] -> write('No animals matched.') ; print_animals(Sorted)).
+% recommend_animals :-
+%      retractall(asked(_, _, _)),
+%      write('Answer a few questions about what you’re looking for in an animal!'), nl,
+%      ask,
+%      findall(Name-Score, likes_animal(Name, Score), Matches),
+%      sort(2, @>=, Matches, Sorted),
+%      (Sorted = [] -> write('No animals matched.') ; print_animals(Sorted)).
 
 print_animals([]).
 print_animals([Name-Score | Rest]) :-
     format('~w (Match score: ~w)~n', [Name, Score]),
     print_animals(Rest).
+
+
+% Get unique values for a specific argument position
+extract_unique(CriterionIndex, _CriterionName, UniqueList) :-
+    findall(Value, (
+        animal(A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11),
+        nth1(CriterionIndex, [A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11], Value)
+    ), AllValues),
+    sort(AllValues, UniqueList).
+
+
+
+
+
 
 
