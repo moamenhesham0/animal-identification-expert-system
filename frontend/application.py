@@ -1,11 +1,14 @@
 from PyQt6.QtWidgets import (
     QWidget, QFrame, QVBoxLayout, QLabel,
     QRadioButton, QPushButton, QButtonGroup,
-    QScrollArea, QApplication
+    QScrollArea, QApplication , QTextBrowser
 )
-from PyQt6.QtCore import Qt
+from PyQt6.QtGui import QPixmap
+import requests
+from PyQt6.QtCore import QByteArray, QBuffer, QIODevice, Qt
 import sys
 import pyswip
+
 
 
 
@@ -24,6 +27,8 @@ class AnimalExpertSystem(QWidget):
     }
 
     QUESTION_TEMPLATE = "What is the {} of the animal?"
+
+    WIKIPEDIA_LINK = "https://en.wikipedia.org/api/rest_v1/page/summary/{}"
 
     VAR = "X"
     GET_CRITERIA_CHOICES_TEMPLATE = "extract_unique({}, _, {})"
@@ -102,6 +107,41 @@ class AnimalExpertSystem(QWidget):
                         background-color: #3c9e9e;
                     }}
                 """
+    def __request_wikipedia_data(self, animal_name):
+        # Check if this is a result string instead of an animal name
+        if ":" in animal_name:
+            return None, None  # Return a tuple with None values
+
+        try:
+            response = requests.get(AnimalExpertSystem.WIKIPEDIA_LINK.format(animal_name))
+
+            if response.status_code != 200:
+                return None, None  # Return a tuple with None values
+
+            data = response.json()
+
+            image_url = data.get("thumbnail", {}).get("source", None)
+            description = data.get("extract_html", animal_name)
+
+            return image_url, description
+        except Exception as e:
+            print(f"Error fetching Wikipedia data: {e}")
+            return None, None  # Return a tuple with None values
+
+
+    def __load_image_from_url(self,url):
+        response = requests.get(url)
+        if response.status_code == 200:
+            image_data = response.content
+            byte_array = QByteArray(image_data)
+            buffer = QBuffer(byte_array)
+            pixmap = QPixmap()
+            buffer.open(QIODevice.OpenModeFlag.ReadOnly)
+            pixmap.loadFromData(byte_array)
+            return pixmap
+        return None
+
+
 
     def __assert(criterion , storage):
         return AnimalExpertSystem.ASSERT_TEMPLATE.format(storage, criterion)
@@ -186,7 +226,7 @@ class AnimalExpertSystem(QWidget):
 
         self.main_layout = QVBoxLayout(self)
         self.main_layout.setContentsMargins(20, 20, 20, 20)
-        self.main_layout.setSpacing(40)
+        self.main_layout.setSpacing(20)
         self.main_layout.addWidget(self.scroll_area)
         self.main_layout.addWidget(self.button)
         self.setLayout(self.main_layout)
@@ -221,13 +261,14 @@ class AnimalExpertSystem(QWidget):
         self.__clear_layout()
         # Show user's answers
         result_label_header = QLabel("Your Answers")
-        result_label_header.setStyleSheet("font-size: 22px; font-weight: bold; margin-bottom: 10px;")
+        result_label_header.setStyleSheet("font-size: 22px; font-weight: bold; margin-bottom: 10px; color: #4CAFAF;")
         self.layout.addWidget(result_label_header)
 
         for result in self.results:
             result_label = QLabel(result)
             result_label.setStyleSheet("font-size: 18px; color: #444;")
             self.layout.addWidget(result_label)
+
 
         # Visually distinct break
         self.layout.addWidget(AnimalExpertSystem.__create_break_line())
@@ -252,7 +293,7 @@ class AnimalExpertSystem(QWidget):
         # Show best-matching animal(s) and their score
         match_header = QLabel("Best-Matching Animal(s)")
         match_header.setStyleSheet("font-size: 22px; font-weight: bold; color: #4CAFAF; margin-top: 20px;")
-        
+
         self.layout.addWidget(match_header)
 
         if not best_animals or max_score is None or max_score <= 0:
@@ -260,11 +301,39 @@ class AnimalExpertSystem(QWidget):
             no_match_label.setStyleSheet("font-size: 18px; color: #b00; font-weight: bold;")
             self.layout.addWidget(no_match_label)
         else:
-            for animal in best_animals:
-                animal_label = QLabel(f"{animal} (Match score: {max_score})")
-                animal_label.setStyleSheet("font-size: 20px; color: #228B22; font-weight: bold; margin-bottom: 6px;")
-                self.layout.addWidget(animal_label)
+            animal =best_animals[0]
 
+            animal_label = QLabel(f"{animal} (Match score: {max_score})")
+            animal_label.setStyleSheet("font-size: 20px; color: #228B22; font-weight: bold; margin-bottom: 6px;")
+            self.layout.addWidget(animal_label)
+            image , description = self.__request_wikipedia_data(animal)
+
+            if image:
+                pixmap = self.__load_image_from_url(image)
+                image_label = QLabel()
+                image_label.setStyleSheet("margin: 10px 0;")
+                image_label.setPixmap(pixmap.scaled(200, 200, Qt.AspectRatioMode.KeepAspectRatio))
+                self.layout.addWidget(image_label)
+
+            if description:
+                # Replace QLabel with QTextBrowser for better HTML rendering and scrolling
+                description_browser = QTextBrowser()
+                description_browser.setHtml(description)
+                description_browser.setOpenExternalLinks(True)  # Allow clicking links
+                description_browser.setStyleSheet("""
+                    QTextBrowser {
+                        font-size: 16px;
+                        color: #666;
+                        margin-bottom: 20px;
+                        border: none;
+                        background-color: transparent;
+                    }
+                """)
+                # Set a reasonable fixed height for the browser
+                description_browser.setFixedHeight(250)
+                description_browser.setFixedWidth(self.scroll_area.width() - 60)
+
+                self.layout.addWidget(description_browser)
 
     def get_unique_criterion_values(self, index):
         # Returns unique values for a criterion index (1-based)
