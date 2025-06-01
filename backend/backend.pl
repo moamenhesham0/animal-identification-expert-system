@@ -82,12 +82,12 @@ penalty(sound, -1).
 penalty(special, 0).
 penalty(activity, 0).
 
-% Score for each criterion: full match = weight, no match = 0, not asked = penalty specific to criterion
+% Score for each criterion: full match = weight, no match or not asked = penalty specific to criterion
 score_criterion(Criterion, Value, Score) :-
     weight(Criterion, W),
     penalty(Criterion, Penalty),
     ( asked(user, Criterion, Input), Input \= '' ->
-        (Input = Value -> Score = W ; Score = 0)
+        (Input = Value -> Score = W ; Score = Penalty)
     ; Score = Penalty).
 
 % Penalty for missing input
